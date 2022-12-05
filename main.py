@@ -1,12 +1,11 @@
-import requests, time, re
-import pandas as pd
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.action_chains import ActionChains
-import undetected_chromedriver as uc
 from urllib.parse import unquote
-
+import pandas as pd
+import re
+import requests
+import time
+import undetected_chromedriver as uc
+from bs4 import BeautifulSoup
+from selenium.webdriver.chrome.options import Options
 
 options = Options()
 options.add_argument("--headless")
@@ -49,7 +48,8 @@ def get_links_for_1_task(link: str):
 def get_html_old(url):
     try:
         header = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+                          "Chrome/74.0.3729.169 Safari/537.36",
             'referer': 'https://www.google.com/'
         }
         r = requests.get(url, headers=header).text
@@ -62,15 +62,12 @@ def get_html_old(url):
 
 def get_html(url: str):
     try:
-
-        html = ''
-
         driver.get(url)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         html = driver.page_source
 
         return html
-    except:
+    except TypeError:
         get_html(url)
 
 
@@ -79,7 +76,7 @@ def get_data(html: str, link: str):
 
     try:
         address = soup.find_all('h1', class_='Text-c11n-8-73-0__sc-aiai24-0 kHeRng')[0].text
-    except:
+    except TypeError:
         address = ''
 
     seller = ''
@@ -103,32 +100,32 @@ def get_data(html: str, link: str):
             seller = response
             status = response
             foreclosure = response
-    except:
+    except TypeError:
         pass
 
     try:
         price = soup.find_all('span', class_='Text-c11n-8-73-0__sc-aiai24-0 dpf__sc-1me8eh6-0 kGdfMs fzJCbY')[0].text
-    except:
+    except TypeError:
         price = ''
 
     try:
         zestimate = soup.find_all('span', class_='Text-c11n-8-73-0__sc-aiai24-0 QDBWk')[0].text
-    except:
+    except TypeError:
         zestimate = ''
 
     try:
         days = soup.find_all('dl', class_='hdp__sc-7d6bsa-0 cUSEtc')[0].find_all('dt')[0].text
-    except:
+    except TypeError:
         days = ''
 
     try:
         views = soup.find_all('dl', class_='hdp__sc-7d6bsa-0 cUSEtc')[0].find_all('dt')[1].text
-    except:
+    except TypeError:
         views = ''
 
     try:
         saves = soup.find_all('dl', class_='hdp__sc-7d6bsa-0 cUSEtc')[0].find_all('dt')[2].text
-    except:
+    except TypeError:
         saves = ''
     try:
         description = soup.find_all('ul', class_='dpf__sc-xzpkxd-0 kExvOu')[0]
@@ -137,7 +134,7 @@ def get_data(html: str, link: str):
             plot += row.find('span', class_='Text-c11n-8-73-0__sc-aiai24-0 dpf__sc-2arhs5-3 kHeRng btxEYg').text + '\n'
         overview = soup.find_all('div', class_='Text-c11n-8-73-0__sc-aiai24-0 sc-cZMNgc kHeRng fvaIwQ')[0].text
         description_full = plot + '\n' + overview
-    except:
+    except TypeError:
         description_full = ''
 
     price_history = ''
@@ -149,7 +146,7 @@ def get_data(html: str, link: str):
             for td in tr:
                 row += td.text + ' '
             price_history += row + '\n'
-    except:
+    except TypeError:
         pass
 
     try:
@@ -159,7 +156,7 @@ def get_data(html: str, link: str):
             for td in tr:
                 row += td.text + ' '
             tax_history += row + '\n'
-    except:
+    except TypeError:
         pass
 
     price_with_tax = price_history + '\n' + tax_history
@@ -195,13 +192,13 @@ def write_data_1_task(data: dict, file_path: str):
     df_full = pd.concat([df_file, df])
     df_full.to_excel(file_path, index=False)
 
+
 def main():
     print("Выберете режим работы скрипта: \n"
           "1) Выгрузка по ссылкам\n"
           "2) Выгрузка по файлу")
     task = int(input())
     if task == 1:
-        links_file = ''
         with open('links.txt', 'r') as f:
             links_file = f.readlines()
         for link_file in links_file:
@@ -212,8 +209,6 @@ def main():
                     data = get_data(html, link)
                     write_data_1_task(data, 'result.xlsx')
                     print(i, f"Объект по ссылке {link} записан в файл")
-
-
 
     if task == 2:
         links = get_links("input_file.xlsx")
