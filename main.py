@@ -5,6 +5,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 import undetected_chromedriver as uc
+from urllib.parse import unquote
+
+
+options = Options()
+options.add_argument("--headless")
+driver = uc.Chrome()
 
 
 def get_links(path: str):
@@ -13,6 +19,30 @@ def get_links(path: str):
     for index, row in df.iterrows():
         links.append(row[0])
     print(links)
+    return links
+
+
+def get_links_for_1_task(link: str):
+    i = 1
+    links = []
+    link_start = link.strip()
+    while True:
+        clean_link = unquote(link_start)
+        clean_link = clean_link[:-1] + ',"pagination":{' + f'"currentPage":{i}' + "}}"
+        html = get_html(clean_link)
+        soup = BeautifulSoup(html, 'lxml')
+        next_false = soup.find('a', {'title': 'Next page', 'tabindex': '-1'})
+        links_page = re.findall('https://www.zillow.com/homedetails/.*?_zpid/', html)
+        links.append(list(set(links_page)))
+        pagination = soup.find('div', class_='search-pagination')
+        if pagination is None:
+            break
+        i += 1
+        print(clean_link)
+        if next_false is None:
+            continue
+        else:
+            break
     return links
 
 
@@ -32,13 +62,13 @@ def get_html_old(url):
 
 def get_html(url: str):
     try:
-        options = Options()
-        options.add_argument("--headless")
-        driver = uc.Chrome(options=options)
+
+        html = ''
+
         driver.get(url)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         html = driver.page_source
-        driver.quit()
+
         return html
     except:
         get_html(url)
@@ -150,14 +180,20 @@ def get_data(html: str, link: str):
     }
 
 
-def write_data(data: dict):
-    df_file = pd.read_excel("input_file.xlsx")
+def write_data_2_task(data: dict, file_path: str):
+    df_file = pd.read_excel(file_path)
     link = data['Ссылка']
     index = df_file[df_file['Ссылка'] == link].index[0]
     df = pd.DataFrame([data], index=[index])
     df_file.update(df)
-    df_file.to_excel('input_file.xlsx', index=False)
+    df_file.to_excel(file_path, index=False)
 
+
+def write_data_1_task(data: dict, file_path: str):
+    df = pd.DataFrame([data])
+    df_file = pd.read_excel(file_path)
+    df_full = pd.concat([df_file, df])
+    df_full.to_excel(file_path, index=False)
 
 def main():
     print("Выберете режим работы скрипта: \n"
@@ -168,17 +204,16 @@ def main():
         links_file = ''
         with open('links.txt', 'r') as f:
             links_file = f.readlines()
-        print(links_file[0])
-        html = get_html(links_file[0])
-        soup = BeautifulSoup(html, 'lxml')
-        ul = soup.find('ul', class_='PaginationList-c11n-8-73-8__sc-14rlw6v-0 fdcnuE')
-        a_s = ul.find_all('a')
-        for a in a_s:
-            print(a['href'])
-        links = re.findall('https://www.zillow.com/homedetails/.*?_zpid/', html)
-        links = list(set(links))
-        for i, link in enumerate(links):
-            print(i, link)
+        for link_file in links_file:
+            links_for_parse = get_links_for_1_task(link_file)
+            for links_each_page in links_for_parse:
+                for i, link in enumerate(links_each_page):
+                    html = get_html(link)
+                    data = get_data(html, link)
+                    write_data_1_task(data, 'result.xlsx')
+                    print(i, f"Объект по ссылке {link} записан в файл")
+
+
 
     if task == 2:
         links = get_links("input_file.xlsx")
@@ -186,8 +221,10 @@ def main():
             html = get_html(link)
             data = get_data(html, link)
             print(data)
-            write_data(data)
-            print(i+1, link, 'обновлена')
+            write_data_2_task(data, file_path='input_file.xlsx')
+            print(i + 1, link, 'обновлена')
+
+    driver.quit()
 
 
 if __name__ == '__main__':
